@@ -7,6 +7,8 @@ public class WorkerTest {
 
     Worker worker;
 
+
+
     @BeforeMethod
     public void beforeTests(){
         worker = new Worker();
@@ -20,7 +22,6 @@ public class WorkerTest {
 
     @AfterMethod
     public void isCounterCorrect(){
-        assertEquals(10,worker.getN());
     }
 
 }
