@@ -1,54 +1,144 @@
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import models.UserThread;
+
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Worker {
 
-    private List<User> users;
+    private List<UserThread> userThreads;
 
-    private static int X = 0;
+    private Set<String> users;
 
-    private static int Nmax = 4;
+    private Set<Long> currentUserThreads;
 
-    private static int Ymax = 2;
+    private int X = 0;
 
-    private static int Xmax = 5;
+    private int Nmax = 5;
 
-    public static int getNmax() {
+    private int Ymax = 3;
+
+    private int Xmax = 6;
+
+    private int Wmax = 3;
+
+    Random random;
+
+    public int getNmax() {
         return Nmax;
     }
 
-    public static void setNmax(int nmax) {
+    public int getYmax() {
+        return Ymax;
+    }
+
+    public int getXmax() {
+        return Xmax;
+    }
+
+    public int getWmax() {
+        return Wmax;
+    }
+
+    public Worker(){
+        random = new Random();
+        userThreads = new ArrayList<>();
+        users = new HashSet<>();
+        currentUserThreads = new HashSet<>();
+    }
+
+    public Worker(int nmax, int ymax, int xmax, int wmax) {
         Nmax = nmax;
+        Ymax = ymax;
+        Xmax = xmax;
+        Wmax = wmax;
     }
 
-    public Worker(List<User> users){
-        this.users=users;
-    }
+    synchronized boolean work(String username) throws InterruptedException {
+        UserThread enteringUserThread = new UserThread(username, Thread.currentThread().getId());
+        if (isMaxRequestAboutToBeExceeded(username))
+            return false;
 
-    synchronized boolean work(String username) throws Exception {
-        final User enteringUser = new User(username, Thread.currentThread().getId());
-        List<User> newUserList = new ArrayList<>(users);
-        Optional<User> newThreadUser = this.users.stream()
-                .filter(user -> user.equals(enteringUser))
-                .findFirst();
-        if(newThreadUser.isPresent()){
-            if(Xmax < X){
-                X++;
-            }else throw new Exception();
+        if (isMaxUsersCountAboutToBeExceeded(username, enteringUserThread))
+            return false;
 
-        }else {
-            newUserList.add(enteringUser);
-            int numberOfUsers = this.users.stream()
-                    .map(user -> user.getUsername())
-                    .collect(Collectors.toSet())
-                    .size();
-            if(Nmax<numberOfUsers){
-                this.users.add(enteringUser);
-            }
-        }
+        if (isMaxUserParallelRequestAboutToBeExceeded(username, enteringUserThread))
+            return false;
+
+        setOnSuccessfullEnterAction(username, enteringUserThread);
+
         return true;
+    }
+
+    private void setOnSuccessfullEnterAction(String username, UserThread enteringUserThread) throws InterruptedException {
+        X++;
+        if(!currentUserThreads.contains(enteringUserThread.getThreadId())){
+           userThreads.add(enteringUserThread);
+           currentUserThreads.add(enteringUserThread.getThreadId());
+           if(!users.contains(enteringUserThread.getUsername())){
+               users.add(enteringUserThread.getUsername());
+           }
+        }
+        Thread.sleep(random.nextInt(2000));
+
+        System.out.println("Successfully entered "+username+"!!!");
+    }
+
+    private boolean isMaxUserParallelRequestAboutToBeExceeded(String username, UserThread enteringUserThread) throws InterruptedException {
+        currentUserThreads = this.userThreads.stream()
+                .filter(userThread -> username.equals(userThread.getUsername()))
+                .map(userThread -> userThread.getThreadId())
+                .collect(Collectors.toSet());
+
+        if(!currentUserThreads.contains(enteringUserThread.getThreadId()) && currentUserThreads.size() >= Ymax){
+
+            Thread.sleep(Wmax*1000);
+
+            if(!currentUserThreads.contains(enteringUserThread.getThreadId()) && currentUserThreads.size() >= Ymax){
+                onAccessDeniedAction(username);
+
+                return true;
+            }
+
+        }
+        return false;
+    }
+
+    private boolean isMaxUsersCountAboutToBeExceeded(String username, UserThread enteringUserThread) throws InterruptedException {
+        users = this.userThreads.stream()
+                    .map(userThread -> userThread.getUsername())
+                    .collect(Collectors.toSet());
+
+        if(!users.contains(enteringUserThread.getUsername()) && users.size() >= Nmax){
+
+            Thread.sleep(Wmax*1000);
+
+            if(!users.contains(enteringUserThread.getUsername()) && users.size() >= Nmax){
+                onAccessDeniedAction(username);
+
+                return true;
+            }
+
+        }
+        return false;
+    }
+
+    private boolean isMaxRequestAboutToBeExceeded(String username) throws InterruptedException {
+        if( X >= Xmax){
+
+            Thread.sleep(Wmax*1000);
+
+            if(X >= Xmax){
+                onAccessDeniedAction(username);
+
+                return true;
+            }
+
+        }
+        return false;
+    }
+
+    private void onAccessDeniedAction(String username) {
+        System.out.println("Access denied "+username+"!!!");
     }
 
 }
